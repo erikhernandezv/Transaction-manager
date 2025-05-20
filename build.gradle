@@ -42,6 +42,7 @@ subprojects {
             property "sonar.projectKey", "erikhernandezv_Transaction-manager"
             property "sonar.organization", "erikhernandezv"
             property "sonar.host.url", "https://sonarcloud.io"
+            property "sonar.login", System.getenv("SONAR_TOKEN")
         }
     }
 
