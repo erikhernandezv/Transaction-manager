@@ -1,4 +1,11 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
 rootProject.name = 'transaction-management'
+
 include 'banks-service'
 include 'api-gateway'
 include 'accounts-service'
