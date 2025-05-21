@@ -127,11 +127,4 @@ public class TransactionService {
 
         return transactionServices.save(trx);
     }
-
-    /*Mono<Transaction> findByBankIdAndAccountId(Long bankId, Long accountId){
-        transactionServices.findByBankIdAndAccountId(bankId, accountId)
-                .switchIfEmpty(
-                        Mono.error(new RuntimeException("Transaction not found"))
-                );
-    }*/
 }

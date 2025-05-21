@@ -2,6 +2,7 @@ package co.erikhdez.accountsservice.common;
 
 import co.erikhdez.accountsservice.dto.BankDTO;
 import co.erikhdez.accountsservice.exception.BankNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -12,9 +13,9 @@ public class BankClient {
 
     private final WebClient webClient;
 
-    public BankClient(WebClient.Builder webClientBuilder) {
+    public BankClient(WebClient.Builder webClientBuilder, @Value("${bank.service.url}") String baseUrl) {
         this.webClient = webClientBuilder
-                .baseUrl("http://localhost:8080/api/bank")
+                .baseUrl(baseUrl)
                 .build();
     }
 
