@@ -5,6 +5,7 @@ import co.erikhdez.transactionservice.common.Movement;
 import co.erikhdez.transactionservice.common.State;
 import co.erikhdez.transactionservice.common.TransactionType;
 import co.erikhdez.transactionservice.dto.TransactionRequestDTO;
+import co.erikhdez.transactionservice.event.EventPublisher;
 import co.erikhdez.transactionservice.exception.BusinessException;
 import co.erikhdez.transactionservice.model.Transaction;
 import co.erikhdez.transactionservice.repository.ITransactionService;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Service
@@ -19,10 +21,15 @@ public class TransactionService {
 
     private final ITransactionService transactionServices;
     private final AccountsClient accountsClient;
+    private final EventPublisher eventPublisher;
+    private final TransactionUtils trxUtils;
 
-    public TransactionService(ITransactionService transactionService, AccountsClient accountsClient) {
+    public TransactionService(ITransactionService transactionService, AccountsClient accountsClient,
+                              EventPublisher eventPublisher, TransactionUtils transactionUtils) {
         this.transactionServices = transactionService;
         this.accountsClient = accountsClient;
+        this.eventPublisher = eventPublisher;
+        this.trxUtils = transactionUtils;
     }
 
     public Flux<Transaction> getAll() {
@@ -38,48 +45,26 @@ public class TransactionService {
 
     public Mono<Transaction> createTransaction(TransactionRequestDTO transactionRequestDTO) {
 
-        if (!isValidTransactionBetweenAccounts(transactionRequestDTO)) {
+        if (!trxUtils.isValidTransactionBetweenAccounts(transactionRequestDTO)) {
             return Mono.error(
                     new BusinessException("Transaction not allowed: destination account is equal to origin account.")
             );
         }
 
-        return sufficientFunds(transactionRequestDTO)
+        return trxUtils.sufficientFunds(transactionRequestDTO, accountsClient)
                 .flatMap(hasFunds -> {
                     if (!hasFunds) {
                         return Mono.error(new BusinessException("Transaction not allowed: insufficient funds."));
                     }
 
-                    if ( isIntrabank(transactionRequestDTO) ) {
+                    if ( trxUtils.isIntrabank(transactionRequestDTO) ) {
                         return saveTransaction(transactionRequestDTO, Movement.DEBIT, TransactionType.INTRABANK)
-                                .then(saveTransaction(transactionRequestDTO, Movement.CREDIT, TransactionType.INTERBANK));
+                                .then(saveTransaction(transactionRequestDTO, Movement.CREDIT, TransactionType.INTRABANK));
                     } else {
-                        // En transacción interbancaria, se envía luego a una cola o se encadena la operación
+                        eventPublisher.sendEvent(transactionRequestDTO);
                         return saveTransaction(transactionRequestDTO, Movement.DEBIT, TransactionType.INTRABANK);
-                                /*debit.then(
-                                sendInterbankCreditTransaction(transactionRequestDTO)*/
                     }
                 });
-
-
-        /*return sufficientFunds(transactionRequestDTO)
-                .flatMap(hasFunds -> {
-                    if (!hasFunds) {
-                        return Mono.error(new BusinessException("Transaction not allowed: insufficient funds."));
-                    }
-
-                    if ( isIntrabank(transactionRequestDTO) ){
-                        return saveTransaction(transactionRequestDTO, Movement.DEBIT, TransactionType.INTERBANK)
-                                .then(saveTransaction(transactionRequestDTO, Movement.CREDIT, TransactionType.INTERBANK));
-                    }else {
-                        return saveTransaction(transactionRequestDTO, Movement.DEBIT, TransactionType.INTRABANK);
-                                //.then();
-                        // Enviar a cola la transaccion tipo Deposito - Credito
-                    }
-                    /*return prepareTransaction(transactionRequestDTO);/ *saveTransaction(transactionRequestDTO, Movement.DEBIT, TransactionType.INTERBANK)
-                            .then(saveTransaction(transactionRequestDTO, Movement.CREDIT, TransactionType.INTERBANK));* /
-                });*/
-
     }
 
     public Mono<Transaction> updateTransaction(Long id, Transaction updatedTransaction) {
@@ -92,28 +77,14 @@ public class TransactionService {
                 });
     }
 
-    private Boolean isIntrabank(TransactionRequestDTO transactionRequestDTO) {
-        return (transactionRequestDTO.getBankIdOrigin().compareTo(transactionRequestDTO.getBankIdDestination()) == 0);
-    }
-
-    private Mono<Boolean> sufficientFunds(TransactionRequestDTO transactionRequestDTO) {
-        return accountsClient.findByBankIdAndAccountId(transactionRequestDTO.getBankIdOrigin(), transactionRequestDTO.getAccountIdOrigin())
-                .map(accountsData -> accountsData.getAmount().compareTo(transactionRequestDTO.getAmount()) >= 0)
-                .defaultIfEmpty(false);
-    }
-
-    private Boolean isValidTransactionBetweenAccounts(TransactionRequestDTO transactionRequestDTO) {
-        return (transactionRequestDTO.getAccountIdOrigin().compareTo(transactionRequestDTO.getAccountIdDestination()) != 0);
-    }
-
     private Mono<Transaction> saveTransaction(TransactionRequestDTO transactionRequestDTO, Movement movement,
                                               TransactionType transactionType) {
-
         Transaction trx = new Transaction();
         trx.setTypeTransaction(transactionType);
         trx.setDateTransaction(LocalDate.now());
         trx.setTypeMovement(movement);
         trx.setStateTransaction(State.COMPLETADA);
+        trx.setAmount(BigDecimal.ZERO);
 
         if (movement.equals(Movement.CREDIT)) {
             trx.setAccountId(transactionRequestDTO.getAccountIdDestination());

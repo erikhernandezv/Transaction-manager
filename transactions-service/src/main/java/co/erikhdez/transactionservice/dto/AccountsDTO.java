@@ -1,7 +1,8 @@
 package co.erikhdez.transactionservice.dto;
 
+import co.erikhdez.transactionservice.common.Currency;
+
 import java.math.BigDecimal;
-import java.util.Currency;
 
 public class AccountsDTO {
     private Long id;
