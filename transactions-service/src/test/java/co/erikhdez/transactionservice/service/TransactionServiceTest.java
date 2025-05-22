@@ -26,13 +26,15 @@ class TransactionServiceTest {
     private AccountsClient accountsClient;
     private EventPublisher eventPublisher;
     private TransactionService transactionService;
+    private TransactionUtils trxUtils;
 
     @BeforeEach
     void setUp() {
         transactionRepository = mock(ITransactionService.class);
         accountsClient = mock(AccountsClient.class);
         eventPublisher = mock(EventPublisher.class);
-        transactionService = new TransactionService(transactionRepository, accountsClient, eventPublisher);
+        trxUtils = mock(TransactionUtils.class);
+        transactionService = new TransactionService(transactionRepository, accountsClient, eventPublisher, trxUtils);
     }
 
     @Test

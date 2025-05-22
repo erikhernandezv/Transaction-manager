@@ -31,7 +31,7 @@ public class TransactionController {
         return transactionService.createTransaction(trxRequestDTO);
     }
 
-    @PutMapping("/{bankId}")
+    @PutMapping("/{trxId}")
     public Mono<Transaction> updateTrx(@PathVariable Long trxId, @RequestBody Transaction trxRequest) {
         return transactionService.updateTransaction(trxId, trxRequest);
     }

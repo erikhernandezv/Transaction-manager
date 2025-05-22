@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.when;
 
-public class AccountsServiceTest {
+class AccountsServiceTest {
 
     @Mock
     private IAccountsRepository accountsRepository;
